@@ -1,0 +1,110 @@
+[
+  {
+    "model": "tree.person",
+    "pk": 1,
+    "fields": {
+      "name": "Grandfather",
+      "gender": "M",
+      "generation": 1,
+      "role": "grandfather",
+      "birth_year": 1940,
+      "birth_date": null,
+      "notes": "The head of our family. A wise and respected elder.",
+      "photo": "",
+      "photo_url": "",
+      "parent": null,
+      "spouse": null,
+      "is_alive": true
+    }
+  },
+  {
+    "model": "tree.person",
+    "pk": 2,
+    "fields": {
+      "name": "Grandmother",
+      "gender": "F",
+      "generation": 1,
+      "role": "grandmother",
+      "birth_year": 1943,
+      "birth_date": null,
+      "notes": "The heart of our family. Loving and caring.",
+      "photo": "",
+      "photo_url": "",
+      "parent": null,
+      "spouse": 1,
+      "is_alive": true
+    }
+  },
+  {
+    "model": "tree.person",
+    "pk": 3,
+    "fields": {
+      "name": "Father",
+      "gender": "M",
+      "generation": 2,
+      "role": "father",
+      "birth_year": 1968,
+      "birth_date": null,
+      "notes": "Our beloved father.",
+      "photo": "",
+      "photo_url": "",
+      "parent": 1,
+      "spouse": null,
+      "is_alive": true
+    }
+  },
+  {
+    "model": "tree.person",
+    "pk": 4,
+    "fields": {
+      "name": "Uncle 1",
+      "gender": "M",
+      "generation": 2,
+      "role": "uncle",
+      "birth_year": 1970,
+      "birth_date": null,
+      "notes": "Father's brother.",
+      "photo": "",
+      "photo_url": "",
+      "parent": 1,
+      "spouse": null,
+      "is_alive": true
+    }
+  },
+  {
+    "model": "tree.person",
+    "pk": 5,
+    "fields": {
+      "name": "Aunt 1",
+      "gender": "F",
+      "generation": 2,
+      "role": "aunt",
+      "birth_year": 1973,
+      "birth_date": null,
+      "notes": "Father's sister.",
+      "photo": "",
+      "photo_url": "",
+      "parent": 1,
+      "spouse": null,
+      "is_alive": true
+    }
+  },
+  {
+    "model": "tree.person",
+    "pk": 6,
+    "fields": {
+      "name": "You",
+      "gender": "M",
+      "generation": 3,
+      "role": "son",
+      "birth_year": 2005,
+      "birth_date": null,
+      "notes": "Built this family tree with love.",
+      "photo": "",
+      "photo_url": "",
+      "parent": 3,
+      "spouse": null,
+      "is_alive": true
+    }
+  }
+]
