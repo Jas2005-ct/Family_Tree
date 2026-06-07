@@ -1,98 +1,53 @@
-# 🌳 Family Tree
+# Family Tree
 
-An interactive family tree web application built with **Django 5**, **Bootstrap 5**, **Alpine.js**, and **HTMX**.
+A Django-powered family tree visualization app with a D3.js force-directed node-link diagram and a Tailwind CSS UI.
 
-## ✨ Features
+## Tech Stack
+- **Backend:** Django 5, Django REST Framework
+- **Frontend:** Tailwind CSS (CDN), D3.js v7, Lucide icons
+- **DB:** PostgreSQL (prod) / SQLite (dev)
+- **Deploy:** Render + WhiteNoise
 
-- 🌳 Interactive SVG node-connection family tree
-- 👤 Click any node to view person details
-- 🔐 Admin panel to add/edit/delete family members
-- ⚡ HTMX-powered forms (no page reloads)
-- 🏔️ Alpine.js for smooth UI interactions
-- 📱 Fully responsive (Bootstrap 5)
-
-## 🏗️ Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Backend | Django 5.x |
-| Frontend | HTML + Bootstrap 5 |
-| Interactivity | Alpine.js |
-| Dynamic UI | HTMX |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-
-## 🌿 Branch Structure
-
-| Branch | Purpose |
-|--------|---------|
-| `main` | Stable production code |
-| `develop` | Integration branch |
-| `feature/tree-ui` | Family tree visual + SVG nodes |
-| `feature/admin-panel` | Add/Edit/Delete persons (HTMX) |
-| `feature/auth` | Admin login (Django auth) |
-
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/Jas2005-ct/Family_Tree.git
-cd Family_Tree
-
-# 2. Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 3. Install dependencies
 pip install -r requirements.txt
-
-# 4. Run migrations
 python manage.py migrate
-
-# 5. Create superuser
-python manage.py createsuperuser
-
-# 6. Load sample data
-python manage.py loaddata fixtures/sample_family.json
-
-# 7. Run the server
+python manage.py seed_sample_data   # loads 3-generation demo family
 python manage.py runserver
 ```
 
-Open: http://127.0.0.1:8000
+Visit http://127.0.0.1:8000/
 
-## 🔐 Admin Access
-
-- **Django Admin:** `/admin/` (superuser)
-- **Custom Admin Panel:** `/tree/admin/` (staff users)
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-Family_Tree/
-├── manage.py
-├── requirements.txt
-├── family_tree/          ← Django project settings
-├── tree/                 ← Main app
-│   ├── models.py
-│   ├── views.py
-│   ├── urls.py
-│   ├── templates/tree/
-│   └── static/tree/
-└── fixtures/
-    └── sample_family.json
+tree/
+  models.py          # Person + Relationship
+  serializers.py     # DRF serializers
+  views.py           # ViewSets + /api/v1/persons/graph-data/
+  urls.py            # REST router + template view
+  admin.py
+  management/commands/seed_sample_data.py
+templates/tree/index.html  # D3 + Tailwind SPA
 ```
 
-## 🛠️ Local Development
+## API Endpoints
 
-```bash
-# Switch to feature branch
-git checkout feature/tree-ui
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/v1/persons/` | List all persons |
+| POST | `/api/v1/persons/` | Create person |
+| GET/PUT/DELETE | `/api/v1/persons/{id}/` | Person detail |
+| GET | `/api/v1/persons/graph-data/` | D3 `{nodes, links}` payload |
+| GET | `/api/v1/relationships/` | List relationships |
+| POST | `/api/v1/relationships/` | Create relationship |
+| GET/PUT/DELETE | `/api/v1/relationships/{id}/` | Relationship detail |
 
-# After changes, merge to develop
-git checkout develop
-git merge feature/tree-ui
-```
+## Deployment (Render)
 
-## 📄 License
-
-MIT License — Built with ❤️ as a family gift.
+1. Set env vars: `SECRET_KEY`, `DATABASE_URL`, `DEBUG=False`, `ALLOWED_HOSTS`
+2. Build command: `pip install -r requirements.txt && python manage.py migrate`
+3. Start command: `gunicorn family_tree.wsgi`
+4. Add `whitenoise.middleware.WhiteNoiseMiddleware` to `MIDDLEWARE`
+5. Set `STATIC_ROOT = BASE_DIR / 'staticfiles'` and run `collectstatic`

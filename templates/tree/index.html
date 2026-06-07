@@ -1,0 +1,353 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Family Tree</title>
+
+  <!-- Tailwind CSS v3 CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: ['class', '[data-theme="dark"]'],
+      theme: { extend: {
+        colors: { primary: { DEFAULT:'#01696f', hover:'#0c4e54', light:'#cedcd8' } },
+        fontFamily: { sans:['Satoshi','Inter','sans-serif'], display:['Cabinet Grotesk','Satoshi','sans-serif'] }
+      }}
+    }
+  </script>
+
+  <!-- Fonts -->
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet" />
+
+  <!-- D3.js v7 -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    :root {
+      --color-bg:#f7f6f2; --color-surface:#f9f8f5;
+      --color-primary:#01696f; --color-primary-hover:#0c4e54;
+      --color-text:#28251d; --color-text-muted:#7a7974;
+      --color-divider:#dcd9d5; --color-border:#d4d1ca;
+      --color-node-m:#01696f; --color-node-f:#a12c7b;
+      --shadow-md:0 4px 12px oklch(0.2 0.01 80/0.08);
+      --transition:180ms cubic-bezier(0.16,1,0.3,1);
+    }
+    [data-theme="dark"] {
+      --color-bg:#171614; --color-surface:#1c1b19;
+      --color-primary:#4f98a3; --color-primary-hover:#227f8b;
+      --color-text:#cdccca; --color-text-muted:#797876;
+      --color-divider:#262523; --color-border:#393836;
+      --color-node-m:#4f98a3; --color-node-f:#d163a7;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Satoshi',sans-serif;background:var(--color-bg);color:var(--color-text);min-height:100dvh}
+    #tree-canvas{width:100%;height:100%}
+    .link{stroke:var(--color-border);stroke-opacity:.8;fill:none}
+    .link-spouse{stroke:var(--color-primary);stroke-width:2.5;stroke-dasharray:5 3}
+    .link-parent{stroke:var(--color-text-muted);stroke-width:1.5}
+    .link-sibling{stroke:var(--color-border);stroke-width:1.5;stroke-dasharray:3 3}
+    .node circle{cursor:pointer;transition:r var(--transition),opacity var(--transition)}
+    .node circle:hover{opacity:.85}
+    .node text{font-size:12px;fill:var(--color-text);pointer-events:none;font-family:'Satoshi',sans-serif}
+    #tooltip{position:fixed;background:var(--color-surface);border:1px solid var(--color-border);border-radius:.5rem;padding:.75rem 1rem;box-shadow:var(--shadow-md);pointer-events:none;opacity:0;transition:opacity var(--transition);font-size:13px;color:var(--color-text);max-width:200px;z-index:50}
+    #tooltip.visible{opacity:1}
+    #side-panel{transition:transform var(--transition)}
+    #side-panel.hidden-panel{transform:translateX(100%)}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="sticky top-0 z-40 flex items-center justify-between px-6 py-3 border-b"
+        style="background:var(--color-surface);border-color:var(--color-divider);">
+  <div class="flex items-center gap-3">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-label="Family Tree Logo">
+      <circle cx="16" cy="7" r="5" fill="var(--color-primary)" opacity=".9"/>
+      <circle cx="7" cy="23" r="4" fill="var(--color-primary)" opacity=".7"/>
+      <circle cx="25" cy="23" r="4" fill="var(--color-primary)" opacity=".7"/>
+      <line x1="16" y1="12" x2="7" y2="19" stroke="var(--color-primary)" stroke-width="1.5"/>
+      <line x1="16" y1="12" x2="25" y2="19" stroke="var(--color-primary)" stroke-width="1.5"/>
+      <line x1="7" y1="19" x2="25" y2="19" stroke="var(--color-primary)" stroke-width="1" stroke-dasharray="3 2"/>
+    </svg>
+    <h1 style="font-family:'Cabinet Grotesk',sans-serif;font-size:1.25rem;font-weight:800;">Family Tree</h1>
+  </div>
+  <div class="flex items-center gap-3">
+    <button id="btn-add" onclick="openAddModal()"
+      class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white"
+      style="background:var(--color-primary);">
+      <i data-lucide="user-plus" class="w-4 h-4"></i> Add Member
+    </button>
+    <button data-theme-toggle aria-label="Toggle theme"
+      class="p-2 rounded-lg border" style="border-color:var(--color-border);">
+      <i data-lucide="sun" class="w-5 h-5"></i>
+    </button>
+  </div>
+</header>
+
+<!-- LEGEND -->
+<div class="flex flex-wrap items-center gap-4 px-6 py-2 text-xs"
+     style="color:var(--color-text-muted);border-bottom:1px solid var(--color-divider);">
+  <span class="flex items-center gap-1">
+    <span class="inline-block w-6 border-t-2" style="border-color:var(--color-primary);border-style:dashed;"></span>Spouse
+  </span>
+  <span class="flex items-center gap-1">
+    <span class="inline-block w-6 border-t-2" style="border-color:var(--color-text-muted);"></span>Parent→Child
+  </span>
+  <span class="flex items-center gap-1">
+    <span class="inline-block w-6 border-t-2" style="border-color:var(--color-border);border-style:dashed;"></span>Sibling
+  </span>
+  <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full" style="background:var(--color-node-m);display:inline-block;"></span>Male</span>
+  <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full" style="background:var(--color-node-f);display:inline-block;"></span>Female</span>
+  <span class="ml-auto flex items-center gap-2">
+    <button onclick="resetZoom()" class="px-3 py-1 rounded border text-xs"
+            style="border-color:var(--color-border);">Reset zoom</button>
+    <label class="flex items-center gap-1">
+      <input type="checkbox" id="toggle-labels" checked onchange="toggleLabels(this.checked)"> Labels
+    </label>
+  </span>
+</div>
+
+<!-- GRAPH CANVAS -->
+<div id="graph-wrapper" class="relative" style="height:calc(100vh - 110px);overflow:hidden;">
+  <svg id="tree-canvas"></svg>
+  <div id="tooltip"></div>
+  <div id="spinner" class="absolute inset-0 flex items-center justify-center">
+    <div class="animate-spin rounded-full h-10 w-10 border-4"
+         style="border-color:var(--color-primary);border-top-color:transparent;"></div>
+  </div>
+</div>
+
+<!-- SIDE PANEL -->
+<div id="side-panel" class="fixed top-0 right-0 h-full w-80 z-50 shadow-xl hidden-panel overflow-y-auto"
+     style="background:var(--color-surface);border-left:1px solid var(--color-border);">
+  <div class="flex justify-between items-center p-4 border-b" style="border-color:var(--color-divider);">
+    <h2 class="font-semibold text-base" id="panel-title">Member Details</h2>
+    <button onclick="closePanel()" aria-label="Close panel">
+      <i data-lucide="x" class="w-5 h-5"></i>
+    </button>
+  </div>
+  <div id="panel-body" class="p-4 space-y-3 text-sm"></div>
+  <div class="p-4 flex gap-2 border-t" style="border-color:var(--color-divider);">
+    <button id="btn-edit" onclick="openEditModal()"
+      class="flex-1 py-2 rounded-lg text-sm font-medium border"
+      style="border-color:var(--color-primary);color:var(--color-primary);">Edit</button>
+    <button id="btn-delete" onclick="deletePerson()"
+      class="flex-1 py-2 rounded-lg text-sm font-medium text-white"
+      style="background:#a12c7b;">Delete</button>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div id="modal-backdrop" class="fixed inset-0 z-60 items-center justify-center hidden"
+     style="background:oklch(0.2 0 0/0.45);display:none;">
+  <div class="w-full max-w-md rounded-xl shadow-2xl p-6"
+       style="background:var(--color-surface);border:1px solid var(--color-border);">
+    <h2 class="font-semibold text-lg mb-4" id="modal-title">Add Member</h2>
+    <form id="person-form" class="space-y-3" onsubmit="submitPersonForm(event)">
+      <input type="hidden" id="form-id" />
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs mb-1" style="color:var(--color-text-muted);">First Name *</label>
+          <input id="f-first" required class="w-full px-3 py-2 rounded-lg border text-sm"
+                 style="border-color:var(--color-border);background:var(--color-bg);" />
+        </div>
+        <div>
+          <label class="block text-xs mb-1" style="color:var(--color-text-muted);">Last Name</label>
+          <input id="f-last" class="w-full px-3 py-2 rounded-lg border text-sm"
+                 style="border-color:var(--color-border);background:var(--color-bg);" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs mb-1" style="color:var(--color-text-muted);">Gender</label>
+          <select id="f-gender" class="w-full px-3 py-2 rounded-lg border text-sm"
+                  style="border-color:var(--color-border);background:var(--color-bg);">
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+            <option value="O">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs mb-1" style="color:var(--color-text-muted);">Birth Date</label>
+          <input id="f-birth" type="date" class="w-full px-3 py-2 rounded-lg border text-sm"
+                 style="border-color:var(--color-border);background:var(--color-bg);" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs mb-1" style="color:var(--color-text-muted);">Bio</label>
+        <textarea id="f-bio" rows="2" class="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                  style="border-color:var(--color-border);background:var(--color-bg);"></textarea>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeModal()"
+          class="flex-1 py-2 rounded-lg border text-sm font-medium"
+          style="border-color:var(--color-border);">Cancel</button>
+        <button type="submit"
+          class="flex-1 py-2 rounded-lg text-sm font-medium text-white"
+          style="background:var(--color-primary);">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Theme toggle
+(function(){
+  const btn=document.querySelector('[data-theme-toggle]');
+  const html=document.documentElement;
+  let dark=matchMedia('(prefers-color-scheme:dark)').matches;
+  html.setAttribute('data-theme',dark?'dark':'light');
+  const upd=()=>{ btn.innerHTML=dark?'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>':'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'; };
+  upd();
+  btn.addEventListener('click',()=>{ dark=!dark; html.setAttribute('data-theme',dark?'dark':'light'); upd(); });
+})();
+
+let graphData={nodes:[],links:[]};
+let selectedNode=null;
+let showLabels=true;
+let gMain=null;
+
+const svg=d3.select('#tree-canvas');
+const W=()=>document.getElementById('graph-wrapper').clientWidth;
+const H=()=>document.getElementById('graph-wrapper').clientHeight;
+
+const zoom=d3.zoom().scaleExtent([0.2,4]).on('zoom',(e)=>gMain&&gMain.attr('transform',e.transform));
+svg.call(zoom);
+
+function resetZoom(){
+  svg.transition().duration(500).call(zoom.transform,d3.zoomIdentity.translate(W()/2,H()/2).scale(0.8));
+}
+function toggleLabels(val){
+  showLabels=val;
+  d3.selectAll('.name-label').style('display',val?null:'none');
+}
+function nodeColor(d){
+  const s=getComputedStyle(document.documentElement);
+  if(d.gender==='M')return s.getPropertyValue('--color-node-m').trim();
+  if(d.gender==='F')return s.getPropertyValue('--color-node-f').trim();
+  return s.getPropertyValue('--color-text-muted').trim();
+}
+
+function renderGraph(data){
+  document.getElementById('spinner').style.display='none';
+  svg.selectAll('*').remove();
+  gMain=svg.append('g');
+  const w=W(),h=H();
+  svg.attr('viewBox',`0 0 ${w} ${h}`).attr('width',w).attr('height',h);
+
+  const sim=d3.forceSimulation(data.nodes)
+    .force('link',d3.forceLink(data.links).id(d=>d.id).distance(d=>d.rel_type==='spouse'?80:110).strength(0.6))
+    .force('charge',d3.forceManyBody().strength(-400))
+    .force('center',d3.forceCenter(w/2,h/2))
+    .force('collision',d3.forceCollide(50));
+  window.simulation=sim;
+
+  const link=gMain.append('g').selectAll('line').data(data.links).join('line')
+    .attr('class',d=>`link link-${d.rel_type}`);
+
+  const node=gMain.append('g').selectAll('g').data(data.nodes).join('g').attr('class','node')
+    .call(d3.drag()
+      .on('start',(e,d)=>{ if(!e.active)sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag', (e,d)=>{ d.fx=e.x; d.fy=e.y; })
+      .on('end',  (e,d)=>{ if(!e.active)sim.alphaTarget(0); d.fx=null; d.fy=null; })
+    );
+
+  node.append('circle').attr('r',22).attr('fill',d=>nodeColor(d))
+    .attr('stroke','white').attr('stroke-width',2.5)
+    .on('click',(e,d)=>{ selectedNode=d; openPanel(d); e.stopPropagation(); })
+    .on('mouseenter',(e,d)=>showTooltip(e,d)).on('mouseleave',hideTooltip);
+
+  node.append('text').attr('text-anchor','middle').attr('dy','0.35em')
+    .attr('fill','white').attr('font-size',11).attr('font-weight',600)
+    .text(d=>{ const p=d.name.split(' '); return(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase(); });
+
+  node.append('text').attr('class','name-label').attr('text-anchor','middle').attr('dy',38).attr('font-size',11)
+    .style('display',showLabels?null:'none').text(d=>d.name.split(' ')[0]);
+
+  sim.on('tick',()=>{
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    node.attr('transform',d=>`translate(${d.x},${d.y})`);
+  });
+  svg.on('click',()=>closePanel());
+  setTimeout(resetZoom,600);
+}
+
+function showTooltip(e,d){
+  const t=document.getElementById('tooltip');
+  t.innerHTML=`<strong>${d.name}</strong>${d.birth?`<br>Born: ${d.birth}`:''}]`;
+  t.classList.add('visible');
+  t.style.left=(e.clientX+12)+'px'; t.style.top=(e.clientY-10)+'px';
+}
+function hideTooltip(){ document.getElementById('tooltip').classList.remove('visible'); }
+
+const API='/api/v1';
+const headers={'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')};
+function getCookie(n){ return document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith(n+'='))?.split('=')[1]??''; }
+
+async function loadGraph(){
+  document.getElementById('spinner').style.display='flex';
+  try{ const r=await fetch(`${API}/persons/graph-data/`); graphData=await r.json(); renderGraph(graphData); }
+  catch(e){ document.getElementById('spinner').innerHTML='<p style="color:red">Failed to load data.</p>'; }
+}
+
+function openPanel(d){
+  document.getElementById('panel-title').textContent=d.name;
+  document.getElementById('panel-body').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+      <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${nodeColor(d)};color:white;font-weight:700;font-size:18px;">
+        ${d.name.split(' ').map(p=>p[0]).join('').toUpperCase()}
+      </div>
+      <div><p style="font-weight:600;">${d.name}</p>
+        <p style="color:var(--color-text-muted);font-size:12px;">${d.gender==='M'?'Male':d.gender==='F'?'Female':'Other'}</p>
+      </div>
+    </div>
+    ${d.birth?`<p><span style="color:var(--color-text-muted)">Born:</span> ${d.birth}</p>`:''}
+  `;
+  document.getElementById('side-panel').classList.remove('hidden-panel');
+}
+function closePanel(){ document.getElementById('side-panel').classList.add('hidden-panel'); selectedNode=null; }
+
+function openAddModal(){
+  document.getElementById('modal-title').textContent='Add Member';
+  ['form-id','f-first','f-last','f-birth','f-bio'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-gender').value='M';
+  document.getElementById('modal-backdrop').style.display='flex';
+}
+function openEditModal(){
+  if(!selectedNode)return;
+  document.getElementById('modal-title').textContent='Edit Member';
+  document.getElementById('form-id').value=selectedNode.id;
+  const p=selectedNode.name.split(' ');
+  document.getElementById('f-first').value=p[0]||'';
+  document.getElementById('f-last').value=p.slice(1).join(' ')||'';
+  document.getElementById('f-gender').value=selectedNode.gender||'M';
+  document.getElementById('f-birth').value=selectedNode.birth||'';
+  document.getElementById('modal-backdrop').style.display='flex';
+}
+function closeModal(){ document.getElementById('modal-backdrop').style.display='none'; }
+
+async function submitPersonForm(e){
+  e.preventDefault();
+  const id=document.getElementById('form-id').value;
+  const payload={first_name:document.getElementById('f-first').value,last_name:document.getElementById('f-last').value,gender:document.getElementById('f-gender').value,birth_date:document.getElementById('f-birth').value||null,bio:document.getElementById('f-bio').value};
+  await fetch(id?`${API}/persons/${id}/`:`${API}/persons/`,{method:id?'PUT':'POST',headers,body:JSON.stringify(payload)});
+  closeModal(); await loadGraph();
+}
+
+async function deletePerson(){
+  if(!selectedNode||!confirm(`Delete ${selectedNode.name}?`))return;
+  await fetch(`${API}/persons/${selectedNode.id}/`,{method:'DELETE',headers});
+  closePanel(); await loadGraph();
+}
+
+lucide.createIcons();
+loadGraph();
+</script>
+</body>
+</html>
